@@ -3,6 +3,11 @@
 """
 FlowChart Studio — генератор блок-схем по ГОСТ 19701-90
 =======================================================
+
+
+Запуск:   python flowchart_studio.py                 — графическое окно
+          python flowchart_studio.py prog.cpp -o out.png   — без окна
+Нужен Python 3.9+. Для PNG: pip install pillow
 """
 from __future__ import annotations
 
@@ -98,7 +103,7 @@ def map_code(s, fn):
     out = []
     for i, p in enumerate(parts):
         if i % 2 == 0:
-            if i + 1 < len(parts):
+            if i + 1 < len(parts):   # перед строкой — убираем префиксы $ @ f r b
                 p = re.sub(r'(?<![\w$@])(?:[$@]+|[fFrRbBuU]{1,2})$', '', p)
             out.append(fn(p))
         else:
@@ -879,7 +884,7 @@ class CParser:
     def parse(self):
         self.parse_items(0)
         main_body = self.stray
-        if not self.funcs and not main_body:
+        if not self.funcs and not main_body:      # просто набор операторов (C++ без main)
             self.i = 0
             while not self.eof():
                 b = self.i
@@ -980,7 +985,7 @@ class CParser:
                 self.i += 2               # метка goto
                 return []
             if self.is_function_at(self.i):
-                self.parse_function()
+                self.parse_function()     # локальная функция (C#)
                 return []
         a, b = self.gather()
         nodes = translate_simple(self.join(a, b), self.lang)
@@ -1375,7 +1380,7 @@ class Lay:
 
     def __init__(self):
         self.prims, self.left, self.right, self.h, self.term = [], 0.0, 0.0, 0.0, False
-        self.jumps = []
+        self.jumps = []       # неразрешённые break/continue: (вид, Frame, x, y)
 
     @property
     def empty(self):
@@ -1513,13 +1518,13 @@ def lay_jump(j, ctx):
         L.term = True
         return L
     fr = find_frame(j.kind, ctx)
-    if fr is None:
+    if fr is None:                                  # break/continue вне цикла
         L = box_lay('process', 'Выход' if j.kind == 'break' else 'Следующая итерация')
         L.term = True
         return L
     L = Lay()
     L.prims.append(('line', [(0, 0), (0, 10)], False))
-    L.jumps.append((j.kind, fr, 0, 10))
+    L.jumps.append((j.kind, fr, 0, 10))             # линия будет проведена в объемлющем цикле / switch
     L.h = 10
     L.term = True
     return L
@@ -1527,7 +1532,7 @@ def lay_jump(j, ctx):
 
 def lay_if(st, ctx):
     dw, dh, dl = size_box('decision', st.cond)
-    direct = None
+    direct = None                     # if (...) break; / continue;  -> линия прямо из ромба
     if len(st.then) == 1 and isinstance(st.then[0], Jump) and st.then[0].kind in ('break', 'continue'):
         fr0 = find_frame(st.then[0].kind, ctx)
         if fr0 is not None:
@@ -1914,23 +1919,17 @@ def build_scene(prog, opts=None):
     charts = []
     for f in prog.funcs:
         lay = lay_function(f, Ctx(opts))
-        title = 'Алгоритм главной программы' if f.is_main else 'Алгоритм метода ' + f.signature
-        charts.append((title, lay))
+        charts.append(lay)
     L, S, T = [], [], []
     x, pad, total_h = MARGIN, 34, 0
-    for n, (title, lay) in enumerate(charts, 1):
-        cap = wrap('Рисунок %d – %s' % (n, title), 44)
-        cap_w = max(len(l) for l in cap) * CW
+    for lay in charts:
         inner = lay.left + lay.right
-        cw = max(inner, cap_w)
-        width = cw + 2 * pad
-        ox = x + pad + (cw - inner) / 2 + lay.left
+        width = inner + 2 * pad
+        ox = x + pad + lay.left
         oy = MARGIN + pad
         flatten(lay.prims, ox, oy, L, S, T)
         fb = oy + lay.h + pad
-        for i, l in enumerate(cap):
-            T.append(('text', x + width / 2, fb + 22 + i * LH, l))
-        total_h = max(total_h, fb + 22 + len(cap) * LH)
+        total_h = max(total_h, fb)
         x += width + MARGIN
     return Scene(x, total_h + MARGIN / 2, L + S + T)
 
