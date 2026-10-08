@@ -5,7 +5,7 @@ FlowChart Studio — генератор блок-схем по ГОСТ 19701-90
 =======================================================
 
 
-Запуск:   python flowchart_studio.py                 — графическое окно
+Запуск:   python flowchart_studio.py                 — графическое окно 
           python flowchart_studio.py prog.cpp -o out.png   — без окна
 Нужен Python 3.9+. Для PNG: pip install pillow
 """
